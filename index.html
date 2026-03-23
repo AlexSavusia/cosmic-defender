@@ -1,28 +1,34 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="'IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1, initial-scale=1, minimum-scale=1, minimum-scale=3, minimal-ui,viewport-fit=cover">
-    <title>Mars</title>
-    <style>
-      * {
-        margin:  0;
-        padding: 0;
-      }
-      body {
-        height: 100vh;
-        width: 100vh;
-        background-color: black;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-    </style>
-  </head>
-  <body>
+<head>
+  <meta charset="UTF-8" />
+  <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0"
+  />
+  <title>Cosmic Defender</title>
+  <style>
+    html,
+    body,
+    #root {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
 
-    <script src="src/index.js" type="module"></script>
+    * {
+      box-sizing: border-box;
+    }
 
-  </body>
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/src/app/main.tsx"></script>
+</body>
 </html>
