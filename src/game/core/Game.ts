@@ -2,21 +2,24 @@ import { Application } from 'pixi.js';
 import { GAME_CONFIG } from '../../shared/config/gameConfig';
 import { AssetManager } from './AssetsManager';
 import { InputController } from './InputController';
+import { SoundManager } from './SoundManager';
 import { MainScene } from '../scene/MainScene';
-import  { SoundManager } from './SoundManager';
 
 export class Game {
     private app: Application | null = null;
     private container: HTMLElement | null = null;
     private canvas: HTMLCanvasElement | null = null;
 
-    private readonly sound = new SoundManager();
     private readonly assets = new AssetManager();
     private readonly input = new InputController();
+    private readonly sound = new SoundManager();
+
     private scene: MainScene | null = null;
 
     private destroyed = false;
     private mounted = false;
+    private ready = false;
+
     private resizeRaf: number | null = null;
 
     async mount(container: HTMLElement): Promise<void> {
@@ -34,20 +37,23 @@ export class Game {
             height: container.clientHeight || GAME_CONFIG.minHeight,
         });
 
+        app.stop();
+
         if (this.destroyed) {
-            this.safeDisposeApp(app);
-            this.app = null;
+            this.abortMount(app);
             return;
         }
 
         this.canvas = app.canvas;
-        container.appendChild(app.canvas);
+
+        if (this.canvas && this.container) {
+            this.container.appendChild(this.canvas);
+        }
 
         await this.assets.loadAll();
 
         if (this.destroyed) {
-            this.safeDisposeApp(app);
-            this.app = null;
+            this.abortMount(app);
             return;
         }
 
@@ -56,18 +62,27 @@ export class Game {
         const scene = new MainScene(this.assets, this.input, this.sound);
         this.scene = scene;
 
-        scene.init(container.clientWidth || GAME_CONFIG.minWidth, container.clientHeight || GAME_CONFIG.minHeight);
+        const width = container.clientWidth || GAME_CONFIG.minWidth;
+        const height = container.clientHeight || GAME_CONFIG.minHeight;
 
+        scene.init(width, height);
         app.stage.addChild(scene);
-        app.ticker.add(this.handleTick);
+
+        if (app.ticker) {
+            app.ticker.add(this.handleTick);
+        }
 
         window.addEventListener('resize', this.handleResize);
 
+        this.ready = true;
         this.mounted = true;
+
+        app.start();
     }
 
     private handleTick = (ticker: { deltaMS: number }) => {
-        this.scene?.update(ticker.deltaMS);
+        if (this.destroyed || !this.ready || !this.scene) return;
+        this.scene.update(ticker.deltaMS);
     };
 
     private handleResize = () => {
@@ -76,13 +91,17 @@ export class Game {
         }
 
         this.resizeRaf = requestAnimationFrame(() => {
-            if (!this.container || !this.scene || !this.app) return;
+            if (!this.app || !this.scene || !this.container || this.destroyed) {
+                this.resizeRaf = null;
+                return;
+            }
 
             const width = this.container.clientWidth || GAME_CONFIG.minWidth;
             const height = this.container.clientHeight || GAME_CONFIG.minHeight;
 
             this.app.renderer.resize(width, height);
             this.scene.resize(width, height);
+
             this.resizeRaf = null;
         });
     };
@@ -90,6 +109,7 @@ export class Game {
     destroy(): void {
         if (this.destroyed) return;
         this.destroyed = true;
+        this.ready = false;
 
         window.removeEventListener('resize', this.handleResize);
 
@@ -98,58 +118,69 @@ export class Game {
             this.resizeRaf = null;
         }
 
-        if (this.app?.ticker) {
-            this.app.ticker.remove(this.handleTick);
-            this.app.ticker.stop();
+        const app = this.app;
+
+        if (app?.ticker) {
+            app.ticker.remove(this.handleTick);
+            app.ticker.stop();
+        }
+
+        this.input.destroy();
+
+        if (app && this.scene && this.scene.parent === app.stage) {
+            app.stage.removeChild(this.scene);
         }
 
         if (this.scene) {
-            if (this.app?.stage && this.scene.parent === this.app.stage) {
-                this.app.stage.removeChild(this.scene);
-            }
-
             this.scene.destroyScene();
             this.scene.destroy({ children: true });
             this.scene = null;
         }
 
-        this.input.destroy();
+        if (this.canvas && this.canvas.parentNode) {
+            this.canvas.parentNode.removeChild(this.canvas);
+        }
+        this.canvas = null;
 
-        if (this.app) {
-            this.safeDisposeApp(this.app);
-            this.app = null;
+        if (app) {
+            try {
+                app.stage.removeChildren();
+            } catch {}
+
+            try {
+                app.renderer.destroy();
+            } catch {}
         }
 
-        this.canvas = null;
+        this.app = null;
         this.container = null;
         this.mounted = false;
     }
 
-    private safeDisposeApp(app: Application): void {
-        try {
-            if (app.stage) {
-                app.stage.removeChildren();
-                app.stage.destroy({ children: true });
-            }
-        } catch (error) {
-            console.warn('Pixi stage destroy error:', error);
+    private abortMount(app: Application): void {
+        if (app?.ticker) {
+            try {
+                app.ticker.remove(this.handleTick);
+            } catch {}
         }
 
         try {
-            if (app.renderer) {
-                app.renderer.destroy();
-            }
-        } catch (error) {
-            console.warn('Pixi renderer destroy error:', error);
+            app.stop();
+        } catch {}
+
+        if (this.canvas && this.canvas.parentNode) {
+            this.canvas.parentNode.removeChild(this.canvas);
         }
+        this.canvas = null;
 
         try {
-            const canvas = this.canvas ?? app.canvas;
-            if (canvas?.parentNode) {
-                canvas.parentNode.removeChild(canvas);
-            }
-        } catch (error) {
-            console.warn('Canvas detach error:', error);
-        }
+            app.renderer.destroy();
+        } catch {}
+
+        this.app = null;
+        this.scene = null;
+        this.container = null;
+        this.mounted = false;
+        this.ready = false;
     }
 }
