@@ -2,6 +2,7 @@ import { Container } from 'pixi.js';
 import { Player } from '../entities/Player';
 import { Bullet } from '../entities/Bullet';
 import { Enemy } from '../entities/Enemy';
+import { Explosion } from '../entities/Explosion';
 import { AssetManager } from '../core/AssetsManager';
 import { InputController } from '../core/InputController';
 import { GAME_CONFIG } from '../../shared/config/gameConfig';
@@ -14,6 +15,7 @@ export class MainScene extends Container {
     private player!: Player;
     private bullets: Bullet[] = [];
     private enemies: Enemy[] = [];
+    private explosions: Explosion[] = [];
 
     private widthViewport = 0;
     private heightViewport = 0;
@@ -55,6 +57,7 @@ export class MainScene extends Container {
         this.handleEnemySpawn(deltaMs);
         this.updateBullets();
         this.updateEnemies();
+        this.updateExplosions(deltaMs);
         this.handleCollisions();
         this.cleanup();
     }
@@ -113,6 +116,12 @@ export class MainScene extends Container {
         }
     }
 
+    private updateExplosions(deltaMs: number): void {
+        for (const explosion of this.explosions) {
+            explosion.update(deltaMs);
+        }
+    }
+
     private handleCollisions(): void {
         for (const bullet of this.bullets) {
             for (const enemy of this.enemies) {
@@ -122,12 +131,19 @@ export class MainScene extends Container {
                 const dy = bullet.y - enemy.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
-                if (distance < 30) {
+                if (distance < enemy.hitRadius) {
                     bullet.isAlive = false;
                     enemy.isAlive = false;
+                    this.spawnExplosion(enemy.x, enemy.y);
                 }
             }
         }
+    }
+
+    private spawnExplosion(x: number, y: number): void {
+        const explosion = new Explosion(x, y);
+        this.explosions.push(explosion);
+        this.addChild(explosion);
     }
 
     private cleanup(): void {
@@ -150,6 +166,16 @@ export class MainScene extends Container {
 
             return true;
         });
+
+        this.explosions = this.explosions.filter((explosion) => {
+            if (!explosion.isAlive) {
+                this.removeChild(explosion);
+                explosion.destroy({ children: true });
+                return false;
+            }
+
+            return true;
+        });
     }
 
     destroyScene(): void {
@@ -161,7 +187,15 @@ export class MainScene extends Container {
             enemy.destroy();
         }
 
+        for (const explosion of this.explosions) {
+            explosion.destroy({ children: true });
+        }
+
         this.player?.destroy();
+
+        this.bullets = [];
+        this.enemies = [];
+        this.explosions = [];
 
         this.removeChildren();
     }

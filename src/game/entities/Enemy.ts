@@ -3,6 +3,7 @@ import { Sprite, type Texture } from 'pixi.js';
 export class Enemy extends Sprite {
     speed = 2.5;
     isAlive = true;
+    hitRadius = 65;
 
     constructor(texture: Texture, x: number, y: number) {
         super(texture);
