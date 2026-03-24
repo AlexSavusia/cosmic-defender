@@ -3,12 +3,14 @@ import { GAME_CONFIG } from '../../shared/config/gameConfig';
 import { AssetManager } from './AssetsManager';
 import { InputController } from './InputController';
 import { MainScene } from '../scene/MainScene';
+import  { SoundManager } from './SoundManager';
 
 export class Game {
     private app: Application | null = null;
     private container: HTMLElement | null = null;
     private canvas: HTMLCanvasElement | null = null;
 
+    private readonly sound = new SoundManager();
     private readonly assets = new AssetManager();
     private readonly input = new InputController();
     private scene: MainScene | null = null;
@@ -51,7 +53,7 @@ export class Game {
 
         this.input.mount();
 
-        const scene = new MainScene(this.assets, this.input);
+        const scene = new MainScene(this.assets, this.input, this.sound);
         this.scene = scene;
 
         scene.init(container.clientWidth || GAME_CONFIG.minWidth, container.clientHeight || GAME_CONFIG.minHeight);

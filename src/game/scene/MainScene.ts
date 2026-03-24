@@ -7,8 +7,11 @@ import { AssetManager } from '../core/AssetsManager';
 import { InputController } from '../core/InputController';
 import { GAME_CONFIG } from '../../shared/config/gameConfig';
 import { ASSET_KEYS } from '../assets/manifest';
+import { useGameStore } from '../store/gameStore';
+import {SoundManager} from "../core/SoundManager";
 
 export class MainScene extends Container {
+    private readonly sound: SoundManager;
     private readonly assets: AssetManager;
     private readonly input: InputController;
 
@@ -23,16 +26,19 @@ export class MainScene extends Container {
     private lastFireAt = 0;
     private lastSpawnAt = 0;
 
-    constructor(assets: AssetManager, input: InputController) {
+    constructor(assets: AssetManager, input: InputController, sound: SoundManager) {
         super();
 
         this.assets = assets;
         this.input = input;
+        this.sound = sound;
     }
 
     init(width: number, height: number): void {
         this.widthViewport = width;
         this.heightViewport = height;
+
+        useGameStore.getState().resetScore();
 
         this.player = new Player(this.assets.getTexture(ASSET_KEYS.player));
         this.player.x = width / 2;
@@ -52,6 +58,9 @@ export class MainScene extends Container {
     }
 
     update(deltaMs: number): void {
+        const isPaused = useGameStore.getState().isPaused;
+        if (isPaused) return;
+
         this.handlePlayerInput();
         this.handleFire();
         this.handleEnemySpawn(deltaMs);
@@ -85,6 +94,7 @@ export class MainScene extends Container {
         const bullet = new Bullet(this.player.x, this.player.y - 30);
         this.bullets.push(bullet);
         this.addChild(bullet);
+        this.sound.playShoot()
     }
 
     private handleEnemySpawn(deltaMs: number): void {
@@ -135,6 +145,8 @@ export class MainScene extends Container {
                     bullet.isAlive = false;
                     enemy.isAlive = false;
                     this.spawnExplosion(enemy.x, enemy.y);
+                    this.sound.playExplosion();
+                    useGameStore.getState().addScore(100);
                 }
             }
         }
