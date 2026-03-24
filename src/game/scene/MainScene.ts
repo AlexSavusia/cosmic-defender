@@ -9,8 +9,11 @@ import { GAME_CONFIG } from '../../shared/config/gameConfig';
 import { ASSET_KEYS } from '../assets/manifest';
 import { useGameStore } from '../store/gameStore';
 import {SoundManager} from "../core/SoundManager";
+import  { Pool} from "../core/Pool";
 
 export class MainScene extends Container {
+    private bulletPool = new Pool(() => new Bullet(0, 0));
+    private explosionPool = new Pool(() => new Explosion(0, 0));
     private readonly sound: SoundManager;
     private readonly assets: AssetManager;
     private readonly input: InputController;
@@ -58,6 +61,12 @@ export class MainScene extends Container {
     }
 
     update(deltaMs: number): void {
+        if (this.input.isJustPressed('Escape')) {
+            const store = useGameStore.getState();
+            store.setPaused(!store.isPaused);
+        }
+        this.input.update();
+
         const isPaused = useGameStore.getState().isPaused;
         if (isPaused) return;
 
@@ -84,14 +93,15 @@ export class MainScene extends Container {
     private handleFire(): void {
         const now = performance.now();
         const wantsShoot =
-            this.input.isPressed('Space') || this.input.isPressed('ArrowUp');
+            this.input.isPressed('Space') || this.input.isPressed('ArrowUp') || this.input.isPressed('Mouse0');
 
         if (!wantsShoot) return;
         if (now - this.lastFireAt < GAME_CONFIG.fireCooldownMs) return;
 
         this.lastFireAt = now;
 
-        const bullet = new Bullet(this.player.x, this.player.y - 30);
+        const bullet = this.bulletPool.get();
+        bullet.reset(this.player.x, this.player.y - 30);
         this.bullets.push(bullet);
         this.addChild(bullet);
         this.sound.playShoot()
@@ -153,7 +163,8 @@ export class MainScene extends Container {
     }
 
     private spawnExplosion(x: number, y: number): void {
-        const explosion = new Explosion(x, y);
+        const explosion = this.explosionPool.get();
+        explosion.reset(x, y);
         this.explosions.push(explosion);
         this.addChild(explosion);
     }
@@ -162,7 +173,7 @@ export class MainScene extends Container {
         this.bullets = this.bullets.filter((bullet) => {
             if (!bullet.isAlive) {
                 this.removeChild(bullet);
-                bullet.destroy();
+                this.bulletPool.release(bullet);
                 return false;
             }
 
@@ -182,7 +193,7 @@ export class MainScene extends Container {
         this.explosions = this.explosions.filter((explosion) => {
             if (!explosion.isAlive) {
                 this.removeChild(explosion);
-                explosion.destroy({ children: true });
+                this.explosionPool.release(explosion);
                 return false;
             }
 

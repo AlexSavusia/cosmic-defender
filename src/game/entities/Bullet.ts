@@ -14,6 +14,12 @@ export class Bullet extends Graphics {
         this.y = y;
     }
 
+    reset(x: number, y: number): void {
+        this.x = x;
+        this.y = y;
+        this.isAlive = true;
+    }
+
     update(): void {
         this.y -= this.speed;
 

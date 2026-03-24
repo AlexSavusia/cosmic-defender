@@ -19,6 +19,13 @@ export class Explosion extends Container {
         this.renderFrame(0);
     }
 
+    reset(x: number, y: number): void {
+        this.x = x;
+        this.y = y;
+        this.elapsed = 0;
+        this.isAlive = true;
+    }
+
     update(deltaMs: number): void {
         this.elapsed += deltaMs;
 
